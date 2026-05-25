@@ -1,3 +1,4 @@
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/models.dart';
@@ -358,3 +359,137 @@ class StorageService {
     }
   }
 }
+
+
+// ═══════════════════════════════════════════════════════════════
+// CommunityService — shared posts across all phones via JSONBin.io
+// ═══════════════════════════════════════════════════════════════
+class CommunityService {
+  static const String _binId  = '6a141bd8b5026552d81b1193';   // ← replaced by setup script
+  static const String _apiKey = '/PLachD1RmO4fzjV3oBVOU.4uJx0xNpt0KQC76XGJd1GK7p4Hq3K';  // ← replaced by setup script
+  static const String _base   = 'https://api.jsonbin.io/v3/b';
+  static const String _cacheKey = 'community_posts_cache';
+
+  static final CommunityService instance = CommunityService._();
+  CommunityService._();
+
+  SharedPreferences? _prefs;
+  Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
+  }
+
+  // ── Fetch posts from cloud (returns cached if offline) ────────
+  Future<List<Map<String, dynamic>>> fetchPosts() async {
+    try {
+      final resp = await http.get(
+        Uri.parse('$_base/$_binId/latest'),
+        headers: {
+          'X-Master-Key': _apiKey,
+          'X-Bin-Meta': 'false',
+        },
+      ).timeout(const Duration(seconds: 15));
+
+      if (resp.statusCode == 200) {
+        final decoded = json.decode(resp.body);
+        List<dynamic> raw = [];
+        if (decoded is List) {
+          raw = decoded;
+        } else if (decoded is Map && decoded.containsKey('posts')) {
+          raw = decoded['posts'] as List;
+        }
+        final posts = raw
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+        // Sort newest first
+        posts.sort((a, b) =>
+            (b['time'] as String? ?? '').compareTo(a['time'] as String? ?? ''));
+        // Cache locally for offline use
+        _prefs?.setString(_cacheKey, json.encode(posts));
+        return posts;
+      }
+    } catch (_) {}
+    // Offline fallback
+    return _getCachedPosts();
+  }
+
+  // ── Save full posts list to cloud ─────────────────────────────
+  Future<bool> _savePosts(List<Map<String, dynamic>> posts) async {
+    try {
+      final resp = await http.put(
+        Uri.parse('$_base/$_binId'),
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Master-Key': _apiKey,
+        },
+        body: json.encode(posts),
+      ).timeout(const Duration(seconds: 15));
+      return resp.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ── Add a new post ────────────────────────────────────────────
+  Future<void> addPost(Map<String, dynamic> post) async {
+    final posts = await fetchPosts();
+    posts.insert(0, post);
+    // Keep last 200 posts
+    final trimmed = posts.length > 200 ? posts.sublist(0, 200) : posts;
+    _prefs?.setString(_cacheKey, json.encode(trimmed));
+    await _savePosts(trimmed);
+  }
+
+  // ── Delete a post ─────────────────────────────────────────────
+  Future<void> deletePost(String id) async {
+    final posts = await fetchPosts();
+    final updated = posts.where((p) => p['id'] != id).toList();
+    _prefs?.setString(_cacheKey, json.encode(updated));
+    await _savePosts(updated);
+  }
+
+  // ── Add a reply ───────────────────────────────────────────────
+  Future<void> addReply(String postId, Map<String, dynamic> reply) async {
+    final posts = await fetchPosts();
+    for (final p in posts) {
+      if (p['id'] == postId) {
+        final replies = List<Map<String, dynamic>>.from(
+            (p['replies'] as List? ?? []).map((r) => Map<String, dynamic>.from(r as Map)));
+        replies.add(reply);
+        p['replies'] = replies;
+        break;
+      }
+    }
+    _prefs?.setString(_cacheKey, json.encode(posts));
+    await _savePosts(posts);
+  }
+
+  // ── Toggle like ───────────────────────────────────────────────
+  Future<void> toggleLike(String postId, String userId) async {
+    final posts = await fetchPosts();
+    for (final p in posts) {
+      if (p['id'] == postId) {
+        final likedBy = List<String>.from((p['likedBy'] as List? ?? []).map((e) => e.toString()));
+        if (likedBy.contains(userId)) {
+          likedBy.remove(userId);
+        } else {
+          likedBy.add(userId);
+        }
+        p['likedBy'] = likedBy;
+        p['likes'] = likedBy.length;
+        break;
+      }
+    }
+    _prefs?.setString(_cacheKey, json.encode(posts));
+    await _savePosts(posts);
+  }
+
+  // ── Local cache fallback ──────────────────────────────────────
+  List<Map<String, dynamic>> _getCachedPosts() {
+    final raw = _prefs?.getString(_cacheKey) ?? '[]';
+    try {
+      return List<Map<String, dynamic>>.from(
+          (json.decode(raw) as List).map((e) => Map<String, dynamic>.from(e as Map)));
+    } catch (_) { return []; }
+  }
+}
+

@@ -10,6 +10,7 @@ final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await StorageService.instance.init();
+  await CommunityService.instance.init();
 
   final prefs = await SharedPreferences.getInstance();
   final saved = prefs.getString('pref_theme_mode') ?? 'system';

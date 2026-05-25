@@ -1159,6 +1159,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   String _filter = 'All';
   final _bodyCtrl = TextEditingController();
   bool _showCompose = false;
+  bool _loading = false;
+  bool _posting = false;
   String _postCategory = 'General';
   static const _categories = ['All', 'Crops', 'Livestock', 'Market', 'Weather', 'General'];
 
@@ -1166,17 +1168,29 @@ class _CommunityScreenState extends State<CommunityScreen> {
   void initState() {
     super.initState();
     _loadPosts();
+    // Auto-refresh every 30 seconds so new posts from other phones appear
+    _scheduleRefresh();
   }
 
-  void _loadPosts() {
-    setState(() {
-      _posts = StorageService.instance.getCommunityPosts();
+  void _scheduleRefresh() {
+    Future.delayed(const Duration(seconds: 30), () {
+      if (mounted) {
+        _loadPosts(silent: true);
+        _scheduleRefresh();
+      }
     });
   }
 
-  void _submitPost() {
+  Future<void> _loadPosts({bool silent = false}) async {
+    if (!silent) setState(() => _loading = true);
+    final posts = await CommunityService.instance.fetchPosts();
+    if (mounted) setState(() { _posts = posts; _loading = false; });
+  }
+
+  Future<void> _submitPost() async {
     final body = _bodyCtrl.text.trim();
     if (body.isEmpty) return;
+    setState(() => _posting = true);
     final user = StorageService.instance.getCurrentUser();
     final counties = StorageService.instance.getCounties();
     final post = {
@@ -1187,21 +1201,22 @@ class _CommunityScreenState extends State<CommunityScreen> {
       'time': DateTime.now().toIso8601String(),
       'body': body,
       'likes': 0,
+      'likedBy': <String>[],
       'replies': <Map<String, dynamic>>[],
       'authorId': user?.phone ?? '',
     };
-    StorageService.instance.addCommunityPost(post);
+    await CommunityService.instance.addPost(post);
     _bodyCtrl.clear();
-    setState(() { _showCompose = false; });
-    _loadPosts();
+    setState(() { _showCompose = false; _posting = false; });
+    await _loadPosts();
   }
 
-  void _deletePost(String id) {
-    StorageService.instance.deleteCommunityPost(id);
-    _loadPosts();
+  Future<void> _deletePost(String id) async {
+    await CommunityService.instance.deletePost(id);
+    await _loadPosts();
   }
 
-  void _addReply(String postId, String replyText) {
+  Future<void> _addReply(String postId, String replyText) async {
     final user = StorageService.instance.getCurrentUser();
     final counties = StorageService.instance.getCounties();
     final reply = {
@@ -1212,8 +1227,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
       'body': replyText,
       'authorId': user?.phone ?? '',
     };
-    StorageService.instance.addReplyToPost(postId, reply);
-    _loadPosts();
+    await CommunityService.instance.addReply(postId, reply);
+    await _loadPosts();
   }
 
   String _formatTime(String iso) {
@@ -1300,7 +1315,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: _submitPost,
+                        onPressed: _posting ? null : _submitPost,
                         icon: const Icon(Icons.send_rounded, size: 16),
                         label: const Text('Post'),
                       ),
@@ -1347,7 +1362,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   const Text('💬', style: TextStyle(fontSize: 48)),
                   const SizedBox(height: 12),
-                  Text('No posts yet', style: GoogleFonts.plusJakartaSans(
+                  _loading ? const Center(child: CircularProgressIndicator()) : Text('No posts yet', style: GoogleFonts.plusJakartaSans(
                       fontSize: 16, fontWeight: FontWeight.w700, color: context.tText)),
                   const SizedBox(height: 6),
                   Text('Be the first to post!',

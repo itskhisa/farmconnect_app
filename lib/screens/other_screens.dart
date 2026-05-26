@@ -1362,7 +1362,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
               ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                   const Text('💬', style: TextStyle(fontSize: 48)),
                   const SizedBox(height: 12),
-                  _loading ? const Center(child: CircularProgressIndicator()) : Text('No posts yet', style: GoogleFonts.plusJakartaSans(
+                  _loading ? const Center(child: CircularProgressIndicator()) : _loading ? const Center(child: CircularProgressIndicator()) : Text('No posts yet', style: GoogleFonts.plusJakartaSans(
                       fontSize: 16, fontWeight: FontWeight.w700, color: context.tText)),
                   const SizedBox(height: 6),
                   Text('Be the first to post!',

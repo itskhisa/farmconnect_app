@@ -493,3 +493,60 @@ class CommunityService {
   }
 }
 
+
+// ═══════════════════════════════════════════════════════════════
+// UpdateService — checks GitHub for new app versions
+// ═══════════════════════════════════════════════════════════════
+class UpdateService {
+  // Current installed version — bump this in storage.dart each release
+  static const String currentVersion = '1.0.0';
+
+  // Raw URL of version.json in your GitHub repo
+  static const String _versionUrl =
+      'https://raw.githubusercontent.com/itskhisa/farmconnect_app/main/version.json';
+
+  static final UpdateService instance = UpdateService._();
+  UpdateService._();
+
+  Future<Map<String, dynamic>?> checkForUpdate() async {
+    try {
+      final resp = await http.get(
+        Uri.parse(_versionUrl),
+        headers: {'Cache-Control': 'no-cache'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (resp.statusCode == 200) {
+        final data = Map<String, dynamic>.from(
+            json.decode(resp.body) as Map);
+        final latest  = data['version']     as String? ?? currentVersion;
+        final url     = data['downloadUrl'] as String? ?? '';
+        final message = data['message']     as String? ??
+            'FarmConnect $latest is available!';
+
+        if (_isNewer(latest, currentVersion)) {
+          return {
+            'latestVersion': latest,
+            'downloadUrl':   url,
+            'message':       message,
+          };
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isNewer(String latest, String current) {
+    try {
+      final l = latest.split('.').map(int.parse).toList();
+      final c = current.split('.').map(int.parse).toList();
+      for (var i = 0; i < 3; i++) {
+        final lv = i < l.length ? l[i] : 0;
+        final cv = i < c.length ? c[i] : 0;
+        if (lv > cv) return true;
+        if (lv < cv) return false;
+      }
+    } catch (_) {}
+    return false;
+  }
+}
+

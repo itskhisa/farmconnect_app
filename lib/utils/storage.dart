@@ -499,7 +499,7 @@ class CommunityService {
 // ═══════════════════════════════════════════════════════════════
 class UpdateService {
   // Current installed version — bump this in storage.dart each release
-  static const String currentVersion = '1.0.2';
+  static const String currentVersion = '1.0.0';
 
   // Raw URL of version.json in your GitHub repo
   static const String _versionUrl =

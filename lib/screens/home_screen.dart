@@ -22,7 +22,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _prevIdx = 0;
   int _farmKey = 0;
   bool _isOffline = false;
-  Map<String, dynamic>? _updateInfo;
   bool _notifDot = false;
   List<Map<String, String>> _notifications = [];
 
@@ -38,7 +37,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     });
     _checkConnectivity();
     _loadNotifications();
-    _checkForUpdate();
   }
 
   @override
@@ -260,10 +258,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
 
-  Future<void> _checkForUpdate() async {
-    final info = await UpdateService.instance.checkForUpdate();
-    if (mounted && info != null) setState(() => _updateInfo = info);
-  }
 
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -315,77 +309,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Column(children: [
-          // ── Update available banner ─────────────────────────
-          if (_updateInfo != null)
-            SafeArea(
-              bottom: false,
-              child: Material(
-                color: const Color(0xFF2E7D32),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
-                  child: Row(children: [
-                    const Icon(Icons.system_update_rounded,
-                        size: 16, color: Colors.white),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _updateInfo!['message'] as String? ??
-                            'New update available!',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        final url = _updateInfo!['downloadUrl']
-                            as String? ?? '';
-                        if (url.isNotEmpty) {
-                          await Clipboard.setData(
-                              ClipboardData(text: url));
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Download link copied! '
-                                  'Paste in Chrome to get the update.',
-                                ),
-                                duration: Duration(seconds: 4),
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          'Update',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            color: const Color(0xFF2E7D32),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(() => _updateInfo = null),
-                      child: const Icon(Icons.close,
-                          size: 16, color: Colors.white70),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
           if (_isOffline)
             SafeArea(
               bottom: false,

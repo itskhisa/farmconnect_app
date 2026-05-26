@@ -3,6 +3,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -1611,6 +1612,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  // Update checker
+  String _updateStatus = 'tap to check';  // 'tap to check' | 'checking' | 'up_to_date' | 'available'
+  Map<String, dynamic>? _updateData;
 
   // Notification prefs
   bool _notifWeather = true;
@@ -1817,9 +1821,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _sectionTitle('ℹ️  About'),
               const SizedBox(height: 8),
               FarmCard(child: Column(children: [
-                _menuItem(context, Icons.info_outline,   'About FarmConnect', 'v1.0.0',
+                _menuItem(context, Icons.info_outline, 'About FarmConnect', 'v1.0.0',
                     () => _showAbout(context)),
-                _menuItem(context, Icons.logout_outlined, 'Sign Out',         '',
+                _updateMenuItem(context),
+                _menuItem(context, Icons.logout_outlined, 'Sign Out', '',
                     () => _confirmSignOut(context), showDivider: false),
               ])),  // FarmCard Column
 
@@ -1870,6 +1875,178 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────
+
+  Future<void> _checkForUpdate() async {
+    setState(() { _updateStatus = 'checking'; _updateData = null; });
+    final info = await UpdateService.instance.checkForUpdate();
+    if (mounted) {
+      setState(() {
+        _updateStatus = info != null ? 'available' : 'up_to_date';
+        _updateData = info;
+      });
+    }
+  }
+
+  // ── Check for Updates menu item ─────────────────────────────
+  Widget _updateMenuItem(BuildContext ctx) {
+    String sub;
+    Color subColor = context.tTextMuted;
+    if (_updateStatus == 'checking') {
+      sub = 'Checking...';
+    } else if (_updateStatus == 'up_to_date') {
+      sub = 'You are on the latest version';
+      subColor = Colors.green.shade600;
+    } else if (_updateStatus == 'available') {
+      sub = 'v${_updateData!['latestVersion']} available — tap for instructions';
+      subColor = Colors.orange.shade700;
+    } else {
+      sub = 'Tap to check for updates';
+    }
+    return Column(children: [
+      InkWell(
+        onTap: _updateStatus == 'checking' ? null : () async {
+          if (_updateStatus == 'available' && _updateData != null) {
+            _showUpdateDialog(ctx);
+          } else {
+            await _checkForUpdate();
+            if (mounted && _updateStatus == 'available') {
+              _showUpdateDialog(ctx);
+            }
+          }
+        },
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Row(children: [
+            Container(
+              width: 34, height: 34,
+              decoration: BoxDecoration(
+                color: _updateStatus == 'available'
+                    ? Colors.orange.withOpacity(0.12)
+                    : context.tGreenPale,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _updateStatus == 'checking'
+                  ? const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : Icon(
+                      _updateStatus == 'available'
+                          ? Icons.system_update_rounded
+                          : Icons.refresh_rounded,
+                      size: 18,
+                      color: _updateStatus == 'available'
+                          ? Colors.orange.shade700 : kGreen,
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Check for Updates',
+                    style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13, fontWeight: FontWeight.w600,
+                        color: context.tText)),
+                Text(sub, style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11, color: subColor)),
+              ],
+            )),
+            Icon(Icons.chevron_right, color: context.tTextMuted, size: 18),
+          ]),
+        ),
+      ),
+      Divider(height: 1, color: context.tBorder),
+    ]);
+  }
+
+  void _showUpdateDialog(BuildContext ctx) {
+    final version = _updateData?['latestVersion'] ?? '';
+    final url     = _updateData?['downloadUrl']   ?? '';
+    final message = _updateData?['message']       ?? '';
+    showDialog(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        backgroundColor: Theme.of(ctx).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(children: [
+          Icon(Icons.system_update_rounded, color: kGreen, size: 22),
+          const SizedBox(width: 8),
+          Text('Update Available',
+              style: GoogleFonts.plusJakartaSans(
+                  fontWeight: FontWeight.w800, fontSize: 16,
+                  color: context.tText)),
+        ]),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (message.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(message, style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13, color: context.tTextSec)),
+              ),
+            Text('How to update:', style: GoogleFonts.plusJakartaSans(
+                fontSize: 13, fontWeight: FontWeight.w700,
+                color: context.tText)),
+            const SizedBox(height: 8),
+            _updateStep('1', 'Tap "Copy Link" below'),
+            _updateStep('2', 'Open Chrome and paste the link'),
+            _updateStep('3', 'Download the APK file'),
+            _updateStep('4', 'Tap the downloaded file and install'),
+            _updateStep('5', 'Your data is kept — nothing is lost'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Later', style: GoogleFonts.plusJakartaSans(
+                color: context.tTextMuted)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: kGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8))),
+            icon: const Icon(Icons.copy, size: 16),
+            label: Text('Copy Link', style: GoogleFonts.plusJakartaSans(
+                fontWeight: FontWeight.w700)),
+            onPressed: () async {
+              await Clipboard.setData(ClipboardData(text: url));
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+                content: Text(
+                  'Link copied! Open Chrome and paste to download v$version',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13),
+                ),
+                backgroundColor: kGreen,
+                duration: const Duration(seconds: 5),
+              ));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _updateStep(String num, String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(
+        width: 20, height: 20,
+        decoration: BoxDecoration(
+            color: kGreen, borderRadius: BorderRadius.circular(10)),
+        child: Center(child: Text(num, style: GoogleFonts.plusJakartaSans(
+            fontSize: 11, color: Colors.white,
+            fontWeight: FontWeight.w700))),
+      ),
+      const SizedBox(width: 8),
+      Expanded(child: Text(text, style: GoogleFonts.plusJakartaSans(
+          fontSize: 12, color: context.tTextSec))),
+    ]),
+  );
+
   Widget _sectionTitle(String t) => Padding(
     padding: const EdgeInsets.only(left: 2),
     child: Text(t, style: GoogleFonts.plusJakartaSans(

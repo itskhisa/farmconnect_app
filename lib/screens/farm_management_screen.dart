@@ -25,6 +25,18 @@ class _FarmManagementScreenState extends State<FarmManagementScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 4, vsync: this, initialIndex: widget.initialTab);
+    // Fetch latest data from cloud on screen open
+    _syncFromCloud();
+  }
+
+  Future<void> _syncFromCloud() async {
+    await Future.wait([
+      StorageService.instance.fetchCrops(),
+      StorageService.instance.fetchTasks(),
+      StorageService.instance.fetchRecords(),
+      StorageService.instance.fetchLivestock(),
+    ]);
+    if (mounted) setState(() {});
   }
 
   @override

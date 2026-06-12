@@ -37,9 +37,9 @@ class _AuthScreenState extends State<AuthScreen>
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
     StorageService.instance.runGracePeriodCleanup();
-    final remembered = StorageService.instance.getRememberedPhone();
-    if (remembered != null) {
-      _loginPhoneCtrl.text = remembered;
+    final savedPhone = StorageService.instance.getSavedPhone();
+    if (savedPhone != null) {
+      _loginPhoneCtrl.text = savedPhone;
       _rememberMe = true;
     }
   }
@@ -60,9 +60,9 @@ class _AuthScreenState extends State<AuthScreen>
       return;
     }
     if (_rememberMe) {
-      await StorageService.instance.setRememberPhone(phone);
+      await StorageService.instance.savePassword(phone, pass);
     } else {
-      await StorageService.instance.setRememberPhone(null);
+      await StorageService.instance.clearSavedPassword();
     }
     widget.onAuth();
   }

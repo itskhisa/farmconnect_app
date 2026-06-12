@@ -56,6 +56,12 @@ class _CountySetupScreenState extends State<CountySetupScreen> {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
+                GestureDetector(
+                  onTap: () => Navigator.pushReplacementNamed(context, '/auth'),
+                  child: const Icon(Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white, size: 20),
+                ),
+                const SizedBox(width: 10),
                 const Text('📍', style: TextStyle(fontSize: 22)),
                 const SizedBox(width: 10),
                 Text('My Farm Counties',

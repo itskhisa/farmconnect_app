@@ -25,8 +25,11 @@ class _FarmManagementScreenState extends State<FarmManagementScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 4, vsync: this, initialIndex: widget.initialTab);
-    // Fetch latest data from cloud on screen open
     _syncFromCloud();
+    // Re-sync whenever user switches tabs
+    _tabs.addListener(() {
+      if (_tabs.indexIsChanging) _syncFromCloud();
+    });
   }
 
   Future<void> _syncFromCloud() async {

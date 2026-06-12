@@ -374,17 +374,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 color: active ? activeColor : inactiveColor,
                               )),
                         ]),
-                        // Red dot on Home tab only when there are notifications
-                        if (i == 0 && _notifDot)
-                          Positioned(
-                            top: 4, right: 8,
-                            child: Container(
-                              width: 8, height: 8,
-                              decoration: const BoxDecoration(
-                                  color: Color(0xFFEF4444),
-                                  shape: BoxShape.circle),
-                            ),
-                          ),
                       ]),
                     ),
                   );

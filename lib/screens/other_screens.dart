@@ -3,6 +3,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -1630,6 +1631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _weeklyUpdateCheck();
     _loadPrefs();
   }
 
@@ -1875,6 +1877,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────
+
+
+
+  // Auto-check for updates once a week silently
+  Future<void> _weeklyUpdateCheck() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastCheck = prefs.getInt('last_update_check') ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      const oneWeek = 7 * 24 * 60 * 60 * 1000;
+      if (now - lastCheck < oneWeek) return;
+      await prefs.setInt('last_update_check', now);
+      final info = await UpdateService.instance.checkForUpdate();
+      if (mounted && info != null) {
+        setState(() { _updateStatus = 'available'; _updateData = info; });
+      }
+    } catch (_) {}
+  }
 
   Future<void> _checkForUpdate() async {
     setState(() { _updateStatus = 'checking'; _updateData = null; });

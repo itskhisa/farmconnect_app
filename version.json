@@ -1,5 +1,5 @@
 {
-  "version": "1.0.4",
-  "downloadUrl": "https://drive.google.com/file/d/1dRygGUhm3rVz1jUaw2Bh6apsY-f_tvsk/view?usp=drive_link",
-  "message": "Full cloud sync - login and data now works across all phones"
+  "version": "1.0.5",
+  "downloadUrl": "YOUR_DRIVE_LINK",
+  "message": "Community sync fixed, notification dot fixed, update checker improved"
 }
